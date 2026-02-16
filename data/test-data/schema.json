@@ -1,0 +1,19 @@
+{
+  "input_id": "fi_example_001",
+  "created_at_utc": "2026-02-16T00:00:00Z",
+  "market": "Australia",
+  "services": [],
+  "firmographic": {
+    "industries": [],
+    "headcount_ranges": [],
+    "regions": [],
+    "revenue_ranges": []
+  },
+  "icp": {
+    "company_types": [],
+    "personas": [],
+    "seniority": []
+  },
+  "signals": [],
+  "notes": ""
+}

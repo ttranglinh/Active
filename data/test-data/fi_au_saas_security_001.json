@@ -1,0 +1,19 @@
+{
+  "input_id": "fi_au_saas_security_001",
+  "created_at_utc": "2026-02-16T00:00:00Z",
+  "market": "Australia",
+  "services": ["SOC2 automation", "Cloud security advisory"],
+  "firmographic": {
+    "industries": ["SaaS", "FinTech"],
+    "headcount_ranges": ["51-200", "201-500"],
+    "regions": ["Sydney", "Melbourne"],
+    "revenue_ranges": ["5M-50M"]
+  },
+  "icp": {
+    "company_types": ["B2B SaaS"],
+    "personas": ["VP Engineering", "Head of Security", "CTO"],
+    "seniority": ["Director", "VP", "C-Level"]
+  },
+  "signals": ["hiring security engineer", "SOC2", "cloud migration"],
+  "notes": "Security-focused SaaS lead discovery test profile."
+}
