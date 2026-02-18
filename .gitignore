@@ -17,6 +17,7 @@ venv/
 # Local data artifacts (raw and processed pipeline outputs)
 data/raw/
 data/processed/
+data/sessions/
 
 # Node / frontend
 apps/web/node_modules/
@@ -30,3 +31,7 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Temporary files
+*.tmp
+docs/~WRL*.tmp

@@ -1,141 +1,89 @@
-# Active Repo Structure (Modular Monolith)
+ï»¿# Active Repo Structure (Modular Monolith)
 
-This repository uses a **modular monolith** design: one codebase and one deployable app, but separated into business-capability modules.
+This repo is a **modular monolith**: one deployment, clear domain modules.
 
-## Why This Design
+## Why This Structure
 
-1. **Architecture-aligned boundaries**
-   Your modules map directly to `docs/visual-architecture.md` layers (Input, Ingestion, Intelligence, Storage, Activation), so design and code stay consistent.
+1. **Domain-first design**: module boundaries follow Active product capabilities, not technical layers.
+2. **Fast iteration**: one runtime and one database keep early-stage delivery simple.
+3. **Clear ownership**: each module owns its models, workflows, and integrations.
+4. **Public-repo clarity**: architecture mirrors PRD and data pipeline docs, easy for reviewers to understand.
+5. **Future flexibility**: modules can be extracted to services later if scale requires it.
 
-2. **Faster iteration with lower ops overhead**
-   You get microservice-like separation without distributed-system complexity (service discovery, network retries, cross-service auth).
-
-3. **Safer refactors**
-   Each module exposes a public API; internals can change without breaking the rest of the app.
-
-4. **Clear data ownership**
-   Raw ingestion data, processed intelligence outputs, and canonical lead records have explicit owners, reducing schema drift and coupling.
-
-5. **Incremental path to microservices (if needed later)**
-   If scale requires it, a module can be extracted because contracts already exist.
-
-## Target Structure
+## Current Target Layout
 
 ```txt
 active/
-+-- .github/                         # CI/CD pipelines (GitHub Actions)
-+-- docs/                            # Architecture, ADRs, operating playbooks
-+-- data/                            # Local/dev data artifacts
-¦   +-- raw/                         # Immutable ingestion payloads
-¦   ¦   +-- linkedin/
-¦   ¦       +-- profiles/
-¦   +-- processed/                   # Enriched/normalized/scored outputs
-+-- scripts/                         # One-off jobs and local runners
-+-- src/
-¦   +-- app/                         # App bootstrap and wiring
-¦   ¦   +-- main.py
-¦   ¦   +-- config.py
-¦   ¦   +-- container.py
-¦   +-- modules/
-¦   ¦   +-- input_capture/           # Offer/Firmographic/Persona/Signal intake
-¦   ¦   ¦   +-- domain/
-¦   ¦   ¦   +-- application/
-¦   ¦   ¦   +-- infrastructure/
-¦   ¦   ¦   +-- api/
-¦   ¦   +-- ingestion/               # Serper, Bright Data, manual triggers
-¦   ¦   ¦   +-- domain/
-¦   ¦   ¦   +-- application/
-¦   ¦   ¦   +-- infrastructure/
-¦   ¦   ¦   +-- api/
-¦   ¦   +-- intelligence/            # Orchestration, scoring, recommendations
-¦   ¦   ¦   +-- domain/
-¦   ¦   ¦   +-- application/
-¦   ¦   ¦   +-- infrastructure/
-¦   ¦   ¦   +-- api/
-¦   ¦   +-- lead_store/              # Canonical lead model + persistence
-¦   ¦   ¦   +-- domain/
-¦   ¦   ¦   +-- application/
-¦   ¦   ¦   +-- infrastructure/
-¦   ¦   ¦   +-- api/
-¦   ¦   +-- activation/              # Alerts, outreach, reporting outputs
-¦   ¦       +-- domain/
-¦   ¦       +-- application/
-¦   ¦       +-- infrastructure/
-¦   ¦       +-- api/
-¦   +-- shared/                      # Minimal shared kernel only
-¦       +-- events/
-¦       +-- logging/
-¦       +-- utils/
-+-- tests/
-¦   +-- unit/
-¦   +-- integration/
-¦   +-- contract/
-+-- pyproject.toml
-+-- README.md
+â”œâ”€â”€ apps/
+â”‚   â””â”€â”€ web/                            # Frontend app
+â”œâ”€â”€ config/
+â”‚   â”œâ”€â”€ apify_linkedin_profile_search_template.json
+â”‚   â””â”€â”€ mappings/
+â”œâ”€â”€ data/
+â”‚   â”œâ”€â”€ raw/                            # Raw pipeline artifacts (gitignored)
+â”‚   â”œâ”€â”€ processed/                      # Processed artifacts (gitignored)
+â”‚   â””â”€â”€ sessions/                       # Session inputs/runs (gitignored)
+â”œâ”€â”€ docs/
+â”‚   â”œâ”€â”€ architecture/
+â”‚   â”‚   â”œâ”€â”€ adr/
+â”‚   â”‚   â””â”€â”€ context-map.md
+â”‚   â””â”€â”€ flows/
+â”œâ”€â”€ scripts/
+â”œâ”€â”€ src/
+â”‚   â”œâ”€â”€ app/                            # Bootstrap, config, API assembly
+â”‚   â”œâ”€â”€ modules/
+â”‚   â”‚   â”œâ”€â”€ user_input/                 # Input capture, parsing, normalization
+â”‚   â”‚   â”œâ”€â”€ company_intelligence/       # Company ingestion + signal logic
+â”‚   â”‚   â”œâ”€â”€ contact_pipeline/           # Stub pipeline + unlock enrichment
+â”‚   â”‚   â”œâ”€â”€ search_index/               # Typesense sync/query capabilities
+â”‚   â”‚   â”œâ”€â”€ contributor_system/         # Credits, verification, reputation
+â”‚   â”‚   â”œâ”€â”€ billing/                    # Plans, credit packs, Stripe flows
+â”‚   â”‚   â””â”€â”€ outreach_loop/              # Lists/export/CRM/outreach workflows
+â”‚   â””â”€â”€ shared/
+â”œâ”€â”€ tests/
+â”‚   â”œâ”€â”€ unit/
+â”‚   â”œâ”€â”€ integration/
+â”‚   â”œâ”€â”€ contract/
+â”‚   â””â”€â”€ e2e/
+â”œâ”€â”€ .env
+â”œâ”€â”€ .gitignore
+â”œâ”€â”€ README.md
+â””â”€â”€ requirements.txt
 ```
 
-## Module Responsibilities and Reasons
+## Module Ownership
 
-### `modules/input_capture`
-- Owns validation of user inputs: services, firmographic filters, ICP, and signals.
-- Reason: input rules evolve frequently and should not be mixed with scraping or scoring logic.
+### `src/modules/user_input`
+- Owns user intent capture from UI and Quick Hit style parsing into normalized search specs.
+- Reason: input schema and UX evolve quickly and should not leak into ingestion logic.
 
-### `modules/ingestion`
-- Owns external source collection (Serper search, LinkedIn URL extraction, Bright Data profile scraping, manual URL intake).
-- Writes only to `data/raw/...`.
-- Reason: keeps external API volatility isolated to one module and preserves immutable source data.
+### `src/modules/company_intelligence`
+- Owns company-level ingestion and signal computation (ABR/ASIC/VC/jobs/news/stack).
+- Reason: this is the core ranking intelligence and changes with data-source strategy.
 
-### `modules/intelligence`
-- Owns orchestration from raw data to scored candidates.
-- Writes processed/scoring artifacts to `data/processed/...`.
-- Reason: recommendation logic and ranking experiments can move fast without touching ingestion adapters.
+### `src/modules/contact_pipeline`
+- Owns contact stub prefetch and unlock-time enrichment waterfall.
+- Reason: provider costs and enrichment quality tuning need isolated control.
 
-### `modules/lead_store`
-- Owns canonical lead schema and repository interfaces.
-- Reason: one source of truth prevents every module from defining its own lead format.
+### `src/modules/search_index`
+- Owns sync and query logic for Typesense.
+- Reason: search performance/relevance tuning should be independent from source ingestion.
 
-### `modules/activation`
-- Owns outbound use cases: alerting, CRM sync payloads, reporting views.
-- Reason: delivery channels change often and should not impact upstream ingestion/intelligence.
+### `src/modules/contributor_system`
+- Owns contributor actions, reward rules, and score updates.
+- Reason: this is a distinct product flywheel with fast iteration on incentives.
 
-## Contract Rules (Critical for Modular Monolith)
+### `src/modules/billing`
+- Owns plans, credit transactions, and payment webhooks.
+- Reason: billing/compliance has separate risk and should stay isolated from product logic.
 
-1. A module can import another module only through its `api/` package.
-2. Direct imports into another module's `domain/`, `application/`, or `infrastructure/` are not allowed.
-3. `shared/` must stay small and generic (events, logging primitives, cross-cutting helpers only).
-4. Raw data is append-only and never edited in place.
+### `src/modules/outreach_loop`
+- Owns list/export and future CRM/outreach integrations.
+- Reason: this capability can evolve independently and is rollout-phase dependent.
 
-Reason: these rules preserve module boundaries so the monolith does not collapse into a tightly coupled codebase.
+## Boundary Rules
 
-## Event-Driven Flow Inside the Monolith
-
-Use internal domain events for cross-module coordination:
-- `ProfilesCollected`
-- `CandidatesScored`
-- `LeadsReadyForActivation`
-
-Reason: events reduce hard dependencies while keeping everything in one runtime.
-
-## Mapping From Current Structure
-
-- `src/ingestion` -> `src/modules/ingestion`
-- `src/brain` -> `src/modules/intelligence`
-- `src/core` -> `src/modules/input_capture`
-- `src/activation` -> `src/modules/activation`
-- Add new `src/modules/lead_store`
-- Add new `src/app` and `src/shared`
-
-Reason: this keeps your current work recognizable while introducing stronger boundaries.
-
-## Practical Benefits for Active (Now)
-
-1. You can ship ingestion quickly while intelligence is still evolving.
-2. Bright Data or Serper API changes stay localized in `modules/ingestion`.
-3. Scoring experiments can be versioned in `modules/intelligence` without breaking collection.
-4. Activation channels (email, CRM, dashboards) can be added independently.
-
-## Practical Benefits for Active (Later)
-
-1. Easier onboarding: new contributors can own one module.
-2. Cleaner testing: unit tests by module + contract tests for module APIs.
-3. Easier scale decisions: extract only bottleneck modules if needed.
+1. Cross-module calls should go through each module's `api/` interface.
+2. Avoid importing another module's `domain/`, `application/`, or `infrastructure/` directly.
+3. Keep `src/shared/` small and generic (events, logging, utilities).
+4. Raw/processed/session data is local artifact storage and not source control.
