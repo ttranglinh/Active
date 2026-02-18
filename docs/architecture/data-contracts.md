@@ -109,6 +109,7 @@ Purpose: company intelligence output consumed by search index and result list UI
 - `headcount_range`: string or null
 - `signal_score`: number (0 to 100)
 - `signal_summary`: string[]
+- `signal_sources`: object[]
 - `source_refs`: string[]
 - `updated_at_utc`: string (ISO datetime)
 
@@ -124,8 +125,16 @@ Purpose: company intelligence output consumed by search index and result list UI
 | `headcount_range` | string/null | Yes | pipeline | `company_intelligence` | none | allowed enum if present | employee band |
 | `signal_score` | number | Yes | derived | `company_intelligence` | none | 0..100 | composite growth/activity score |
 | `signal_summary` | string[] | Yes | derived | `company_intelligence` | none | non-empty array preferred | top signal explanations |
+| `signal_sources` | object[] | Yes | derived/pipeline | `company_intelligence` | none | item schema below | UI-facing source provenance for each signal |
 | `source_refs` | string[] | Yes | pipeline | `company_intelligence` | none | traceable ids/urls | provenance pointers |
 | `updated_at_utc` | datetime string | Yes | backend | `company_intelligence` | none | valid ISO-8601 UTC | last update time |
+
+`signal_sources[]` item schema:
+- `type`: string (`hiring` | `funding` | `news` | `tech_stack` | `headcount` | `leadership` | `investor` | `other`)
+- `source_name`: string
+- `source_url`: string or null
+- `collected_at_utc`: string (ISO datetime)
+- `confidence`: number (0.0 to 1.0) or null
 
 ### Validation rules
 
@@ -146,6 +155,22 @@ Purpose: company intelligence output consumed by search index and result list UI
   "signal_summary": [
     "Hiring 4 GTM roles in last 30 days",
     "Series A raised 5 months ago"
+  ],
+  "signal_sources": [
+    {
+      "type": "hiring",
+      "source_name": "Seek",
+      "source_url": "https://www.seek.com.au/job/12345678",
+      "collected_at_utc": "2026-02-16T01:20:00Z",
+      "confidence": 0.92
+    },
+    {
+      "type": "funding",
+      "source_name": "Dealroom",
+      "source_url": null,
+      "collected_at_utc": "2026-02-01T08:00:00Z",
+      "confidence": 0.88
+    }
   ],
   "source_refs": [
     "seek_jobs_snapshot_2026-02-14",

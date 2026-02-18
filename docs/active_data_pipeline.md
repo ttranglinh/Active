@@ -1,8 +1,8 @@
 # Active — Data Pipeline
 **End to End: Raw Extraction → Normalisation → Database → Search Index → Signal Scoring → Contact Stub Pre-fetch → On-Demand Email Enrichment → Contributor Loop**
 
-> **Contact Model: Model C — Hybrid**
-> Free sources pre-populate contact stubs (name + title + LinkedIn URL) at pipeline time. Paid APIs (Proxycurl → Hunter → PDL) only fire when a user clicks Unlock to reveal email and mobile. Zero paid contact cost until actual user demand.
+> **Company -> Contact Model: Hybrid**
+> Free sources pre-populate contact stubs (name + title + LinkedIn URL) at pipeline time. Paid APIs (Apify → Hunter → PDL) only fire when a user clicks Unlock to reveal email and mobile. Zero paid contact cost until actual user demand.
 
 ---
 
@@ -128,16 +128,6 @@ Raw data pulled from government registries, public web sources, and APIs. Nothin
 | **Frequency** | Quarterly |
 | **Risk** | Low |
 
-#### Dealroom / Apify
-| Field | Detail |
-|---|---|
-| **Type** | API / Scrape |
-| **Cost** | ~$8/1K records |
-| **How** | Apify Dealroom scraper — target top AU startups by domain |
-| **Output** | Funding round, amount, date, stage, investors |
-| **Frequency** | Quarterly |
-| **Risk** | Low |
-
 #### Seek / Indeed Job Postings
 | Field | Detail |
 |---|---|
@@ -170,7 +160,7 @@ Raw data pulled from government registries, public web sources, and APIs. Nothin
 
 ---
 
-### Contact Stub Sources (Model C — free, pipeline time)
+### Contact Stub Sources (Prioritise free sources)
 
 These sources populate the `contacts` table with name + title + LinkedIn URL **before any user pays a credit**. Email and mobile remain NULL until unlock.
 
@@ -286,7 +276,7 @@ Clean, normalised records are upserted into PostgreSQL via Supabase. ABN is the 
 
 | | |
 |---|---|
-| **Written by** | ABR pipeline, ASIC scraper, VC portfolio scraper, Dealroom |
+| **Written by** | ABR pipeline, ASIC scraper, VC portfolio scraper |
 | **Update strategy** | UPSERT on ABN — only changed fields overwritten |
 
 ---
@@ -349,8 +339,8 @@ CREATE TABLE contacts (
 
 | | |
 |---|---|
-| **Stub written by** | Startmate scraper, VC portfolio scraper, company website scraper, GitHub API, news byline parser |
-| **Enriched written by** | Proxycurl (at unlock), Hunter.io (at unlock), PDL (at unlock fallback), contributor corrections |
+| **Stub written by** | Startmate scraper, VC portfolio scraper, company website scraper, GitHub API, news byline parser, X-Ray Search |
+| **Enriched written by** | Apify (at unlock), Hunter.io (at unlock), PDL (at unlock fallback), contributor corrections |
 | **Stub update strategy** | UPSERT on `linkedin_url` (preferred) or `full_name + company_abn` — pipeline re-runs never duplicate |
 | **Enriched update strategy** | UPDATE on `contact_id` when `is_stub_only = true`. Re-enrich if `last_verified_at` > 30 days ago. |
 
@@ -419,13 +409,13 @@ signal_score = (hiring × 0.30) + (funding × 0.25) + (headcount × 0.20) + (tec
 ## Phase 6 🔓 — Contact Stub Pre-fetch + On-Demand Email Enrichment
 **Timing:** Stub pre-fetch at pipeline time (weekly/quarterly) · Email enrichment real-time at unlock
 
-Model C splits contact data into two distinct operations with different cost profiles. Stubs are free and collected during the pipeline run. Emails are paid and only fetched when a user actively requests them.
+Model splits contact data into two distinct operations with different cost profiles. Stubs are free and collected during the pipeline run. Emails are paid and only fetched when a user actively requests them.
 
 ---
 
 ### 6a — Contact Stub Pre-fetch (pipeline time, $0)
 
-Runs as part of the weekly/quarterly pipeline alongside company data ingestion. Target: top 200 AU tech startups by Signal Score — the companies users actually search for.
+Runs as part of the weekly/quarterly pipeline alongside company data ingestion. Target: top 200 AU tech startups by Signal Score — the companies users actually search for (or that they are still truly operated).
 
 **Step 1 — Identify target companies**
 Select all companies where `signal_score > 40` AND `vc_backed = true` OR `employee_range >= '11-50'`. This scopes the scraping effort to companies worth prospecting, not every ABN in the database.
@@ -436,7 +426,7 @@ For each target company, run the stub scraper pipeline in parallel:
 - VC portfolio team subpages → named staff where listed
 - Company `/about`, `/team`, `/people` pages → staff listings
 - GitHub API (`location:Australia` + company field) → engineers with public profiles
-- Google News bylines (alongside news signal scrape) → quoted founders/execs
+- Google News bylines (alongside news signal scrape), X-Ray Search → quoted founders/execs
 
 **Step 3 — Normalise and dedup stubs**
 Deduplicate on `linkedin_url` (exact) then `full_name + company_abn` (fuzzy). Classify seniority from title. Link to `company_abn` via domain resolution.
@@ -469,8 +459,8 @@ Frontend shows stub preview (name, title, blurred email) + "Why contact now" AI 
 **Step 3 — Make.com webhook fires**
 Supabase Edge Function POSTs to Make.com scenario with `contact_id` + `linkedin_url` + `company_domain`.
 
-**Step 4 — Proxycurl (first attempt, cheapest)**
-Pass `linkedin_url` to Proxycurl API → attempts to extract email from LinkedIn profile. ~$0.02/call.
+**Step 4 — Apify (first attempt, cheapest)**
+Pass `linkedin_url` to Apify API → attempts to extract email from LinkedIn profile. ~$0.02/call.
 - If email returned → jump to Step 6 (verify)
 - If no email → continue to Step 5
 
@@ -487,8 +477,8 @@ Pass `full_name + company_domain` to People Data Labs API. ~$0.05–0.15/call.
 **Step 6 — Hunter.io email verification**
 Pass email from whichever source found it to Hunter.io verify endpoint. Returns `email_status`: `deliverable` / `risky` / `undeliverable` / `unknown`.
 
-**Step 7 — Claude Haiku — "Why contact now" note**
-Pass company signal context + contact title to Claude Haiku → one-sentence note. ~$0.001/call.
+**Step 7 — OpenAI model — "Why contact now" note**
+Pass company signal context + contact title to OpenAI model → one-sentence note. ~$0.001/call.
 > Example: *"Acme hired a VP Sales 6 weeks ago — likely evaluating CRM and outreach tooling right now."*
 
 **Step 8 — Write enriched contact to Supabase**
@@ -505,10 +495,10 @@ Full contact card: verified email, mobile (if available), LinkedIn URL, email_st
 | Path taken | APIs called | Approx cost |
 |---|---|---|
 | Cache hit (enriched < 30 days ago) | None | $0 |
-| Proxycurl finds email | Proxycurl + Hunter verify + Claude | ~$0.03 |
-| Hunter finds email | Proxycurl (miss) + Hunter + verify + Claude | ~$0.06 |
-| PDL fallback needed | Proxycurl + Hunter + PDL + verify + Claude | ~$0.10–0.18 |
-| No email found | Proxycurl + Hunter + PDL (all miss) | ~$0.08–0.20 (no credit charged) |
+| Apify finds email | Apify + Hunter verify + OpenAI | ~$0.03 |
+| Hunter finds email | Apify (miss) + Hunter + verify + OpenAI | ~$0.06 |
+| PDL fallback needed | Apify + Hunter + PDL + verify + OpenAI | ~$0.10–0.18 |
+| No email found | Apify + Hunter + PDL (all miss) | ~$0.08–0.20 (no credit charged) |
 
 ---
 
@@ -527,7 +517,7 @@ Every user correction improves data quality for everyone. This is the flywheel t
 6. 2 credits awarded to reporting user
 7. `contributor_score++` for user
 
-### Flow 2: User Connects HubSpot CRM
+### Flow 2: User Connects HubSpot CRM (not for this current MVP)
 
 1. HubSpot webhook fires when contact changes job in CRM
 2. Supabase Edge Function receives update payload
@@ -552,9 +542,9 @@ Every user correction improves data quality for everyone. This is the flywheel t
 |---|---|
 | **ABN as primary key** | Government-issued, unique, never duplicated — best deduplication anchor in AU |
 | **Signals table is insert-only** | Preserves full event history for timeline display and score decay logic |
-| **Model C: stubs free, email paid** | Users see who works at a company before spending credits — builds desire to unlock. Zero paid contact cost until actual demand. |
+| **Contact stubs free, email paid** | Users see who works at a company before spending credits — builds desire to unlock. Zero paid contact cost until actual demand. |
 | **`is_stub_only` flag** | Single boolean controls what frontend blurs vs. shows. Clean separation between free and paid data layers. |
-| **Proxycurl first in waterfall** | Cheapest path (~$0.02) when LinkedIn URL is available. Saves PDL cost (~$0.15) for the majority of unlocks. |
+| **Apify first in waterfall** | Cheapest path (~$0.02) when LinkedIn URL is available. Saves PDL cost (~$0.15) for the majority of unlocks. |
 | **No credit charged if no email found** | Trust signal — users only pay when they get something. Reduces friction and churn from failed unlocks. |
 | **Typesense separate from PostgreSQL** | Postgres is source of truth; Typesense handles all search — sub-100ms vs seconds |
 | **`contact_stub_count` in Typesense** | Enables "show only companies with a VP Sales contact" filter without querying Postgres at search time |
