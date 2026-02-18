@@ -12,6 +12,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from src.modules.user_input.api import normalize_user_input
+
 
 ROOT = Path(__file__).resolve().parents[2]
 SESSIONS_DIR = ROOT / "data" / "sessions"
@@ -88,8 +90,16 @@ def create_session(req: CreateSessionRequest) -> dict:
     sdir = session_dir(sid)
     sdir.mkdir(parents=True, exist_ok=False)
 
-    user_input = to_pipeline_input(sid, req)
-    (sdir / "user_input.json").write_text(json.dumps(user_input, ensure_ascii=False, indent=2), encoding="utf-8")
+    raw_user_input = to_pipeline_input(sid, req)
+    normalized = normalize_user_input(raw_user_input, strict=False)
+    (sdir / "user_input.json").write_text(
+        json.dumps(normalized.normalized.model_dump(), ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    (sdir / "user_input_normalization_report.json").write_text(
+        json.dumps(normalized.report.model_dump(), ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
     (sdir / "meta.json").write_text(
         json.dumps(
             {
@@ -108,6 +118,8 @@ def create_session(req: CreateSessionRequest) -> dict:
         "session_id": sid,
         "name": req.name,
         "user_input_path": str((sdir / "user_input.json").relative_to(ROOT)),
+        "normalization_warnings": len(normalized.report.warnings),
+        "normalization_errors": len(normalized.report.errors),
     }
 
 
@@ -163,4 +175,3 @@ def run_session(session_id: str, req: RunSessionRequest) -> dict:
         "summary": summary,
         "stdout": proc.stdout,
     }
-
