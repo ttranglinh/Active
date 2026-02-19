@@ -30,6 +30,7 @@ flowchart TD
     I[Sort by signal_score DESC]
     J[Top N Selection]
     K[Output Artifact\ndata/processed/company_intelligence/<run_id>.json]
+    M[Handoff to Contact Stub Pipeline\ndocs/flows/contact-stub-processing.md]
     L["Fallback Unfiltered<br/>(only if filtered set is empty)"]
 
     B1 --> C
@@ -42,6 +43,7 @@ flowchart TD
     A --> F
     E --> F
     F --> G --> H --> I --> J --> K
+    K --> M
     F -->|empty result + fallback enabled| L --> G
 ```
 
@@ -79,6 +81,10 @@ flowchart TD
 - Sort by `signal_score` descending
 - Keep top N
 - Save output JSON with metadata
+
+8. Handoff to contact pipeline
+- Company output artifact is the upstream input for contact stub creation:
+  - `docs/flows/contact-stub-processing.md`
 
 ## Current Run Commands
 
